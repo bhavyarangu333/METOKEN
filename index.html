@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>CryptoZombies</title>
+  <link rel="icon" href="favicon.ico">
+  <style>
+    body {
+      font-family: 'ProtestRiot-Regular.ttf';
+      color: rgb(229, 235, 237);
+      text-align: center;
+    }
+
+    .welcome-page {
+      position: relative;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-image: url('zombie.png'); /* Background image for the welcome page */
+      background-size: cover;
+      background-position: center;
+      background-color: rgba(0,0,0,0.5);
+    }
+
+    .overlay-image {
+      position: absolute;
+      top: 55%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1200px; /* Adjust the width of the overlay image */
+      height: auto; /* Maintain aspect ratio */
+    }
+
+    .buttons-page {
+      background-image: url(''); /* Replace with your background image URL */
+      background-size: cover;
+      background-position: cover;
+      background-color: rgba(83, 55, 149, 0.876);
+      height: 100vh;
+      display: flex;
+  justify-content: center;
+  align-items: center;
+    }
+
+    .button-container {
+      display: flex;
+  flex-direction: column;
+  align-items: center;
+    }
+
+    .welcomebutton {
+      margin-top: 300px;
+      padding: 20px 50px;
+      font-size: 25px;
+      background-color: white;
+      color: black;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bolder;
+      display: block;
+      max-width: 300px;
+    }
+
+.button {
+  margin-top: 50px;
+      padding: 20px 50px;
+      font-size: 25px;
+      background-color: #4ab64e;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bolder;
+      display: block;
+      align-items: center;
+      max-width: 300px;
+}
+
+    .button:hover {
+      background-color: #45a049;
+    }
+
+    .zombie-image {
+      max-width: 100%;
+      height: auto;
+      margin-top: 50px;
+    }
+  </style>
+  <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.2.7-rc.0/web3.min.js"></script>
+  <script language="javascript" type="text/javascript" src="cryptozombies_abi.js"></script>
+</head>
+
+<body>
+  <div class="welcome-page">
+    <!-- Content for the welcome page -->
+    <h1></h1>
+    <button class="welcomebutton" onclick="redirectToButtonsPage()">Let's Go</button>
+  </div>
+
+  <div class="buttons-page" style="display: none;">
+    <div id="txStatus"></div>
+    <div id="zombies"></div>
+
+    <div class="button-container">
+      <button class="button showZombieButton">Show Zombies</button>
+      <button class="button createzombieButton">Create Zombie</button>
+      <button class="button levelupButton">Level Up</button>
+    </div>
+  </div>
+
+  <script>
+    function redirectToButtonsPage() {
+      document.querySelector('.welcome-page').style.display = 'none';
+      document.querySelector('.buttons-page').style.display = 'block';
+    }
+
+    var cryptoZombies;
+    var userAccount;
+    const showZombieButton = document.querySelector('.showZombieButton');
+    const createzombieButton = document.querySelector('.createzombieButton');
+    const levelupButton = document.querySelector('.levelupButton');
+
+    function startApp() {
+      //ZombieOwnership contract address
+      var cryptoZombiesAddress = "0x9B1A8dBD6A9Bb56175aa3fa8EDC2927fc21bB523"; 
+
+      cryptoZombies = new web3.eth.Contract(cryptoZombiesABI, cryptoZombiesAddress);
+
+      cryptoZombies.events.Transfer({ filter: { _to: userAccount } })
+        .on("data", function (event) {
+          let data = event.returnValues;
+          getZombiesByOwner(userAccount).then(displayZombies);
+        }).on("error", console.error);
+    }
+
+    function displayZombies(ids) {
+      $("#zombies").empty();
+      for (id of ids) {
+        getZombieDetails(id)
+          .then(function (zombie) {
+            $("#zombies").append(`<div class="zombie">
+              <ul>
+                <li>Name: ${zombie.name}</li>
+                <li>DNA: ${zombie.dna}</li>
+                <li>Level: ${zombie.level}</li>
+                <li>Wins: ${zombie.winCount}</li>
+                <li>Losses: ${zombie.lossCount}</li>
+                <li>Ready Time: ${zombie.readyTime}</li>
+              </ul>
+            </div>`);
+          });
+      }
+    }
+
+    function createRandomZombie(name) {
+      $("#txStatus").text("Creating new zombie on the blockchain. This may take a while...");
+      return cryptoZombies.methods.createRandomZombie(name)
+        .send({ from: userAccount })
+        .on("receipt", function (receipt) {
+          $("#txStatus").text("Successfully created " + name + "!");
+          getZombiesByOwner(userAccount).then(displayZombies);
+        })
+        .on("error", function (error) {
+          $("#txStatus").text(error);
+        });
+    }
+
+    function feedOnKitty(zombieId, kittyId) {
+      $("#txStatus").text("Eating a kitty. This may take a while...");
+      return cryptoZombies.methods.feedOnKitty(zombieId, kittyId)
+        .send({ from: userAccount })
+        .on("receipt", function (receipt) {
+          $("#txStatus").text("Ate a kitty and spawned a new Zombie!");
+          getZombiesByOwner(userAccount).then(displayZombies);
+        })
+        .on("error", function (error) {
+          $("#txStatus").text(error);
+        });
+    }
+
+    function levelUp(zombieId) {
+      $("#txStatus").text("Leveling up your zombie...");
+      return cryptoZombies.methods.levelUp(zombieId)
+        .send({ from: userAccount, value: web3.utils.toWei("0.001", "ether") })
+        .on("receipt", function (receipt) {
+          $("#txStatus").text("Power overwhelming! Zombie successfully leveled up");
+        })
+        .on("error", function (error) {
+          $("#txStatus").text(error);
+        });
+    }
+
+    function getZombieDetails(id) {
+      return cryptoZombies.methods.zombies(id).call()
+    }
+
+    function zombieToOwner(id) {
+      return cryptoZombies.methods.zombieToOwner(id).call()
+    }
+
+    function getZombiesByOwner(owner) {
+      return cryptoZombies.methods.getZombiesByOwner(owner).call()
+    }
+
+    window.addEventListener('load', async () => {
+      // Modern dapp browsers...
+      if (window.ethereum) {
+          window.web3 = new Web3(ethereum);
+          try {
+              // Request account access if needed
+              const accounts = await ethereum.enable();
+              // Acccounts now exposed
+              userAccount = accounts[0];
+              startApp()
+          } catch (error) {
+              // User denied account access...
+          }
+      }
+      // Legacy dapp browsers...
+      else if (window.web3) {
+          window.web3 = new Web3(web3.currentProvider);
+          // Acccounts always exposed
+          userAccount = web3.eth.accounts[0];
+          startApp()
+      }
+      // Non-dapp browsers...
+      else {
+          console.log('Non-Ethereum browser detected. You should consider trying MetaMask!');
+      }
+    });
+
+    ethereum.on('accountsChanged', (accounts) => {
+      window.location.reload();
+    });
+
+    ethereum.on('chainChanged', (chainId) => {
+      window.location.reload(); 
+    });  
+
+    createzombieButton.addEventListener('click', () => {
+      createRandomZombie(userAccount);
+    });
+
+    showZombieButton.addEventListener('click', () => {
+      getZombiesByOwner(userAccount)
+            .then(displayZombies);
+    });
+
+    levelupButton.addEventListener('click', () => {
+      getZombiesByOwner(userAccount)
+            .then(levelUp);
+    });
+  </script>
+</body>
+
+</html>
